@@ -33,7 +33,6 @@ fn main() {
     let mut curr_player = board::Cell::Player1;
     board.print();
     while board.game_ongoing() {
-
         let input = get_user_input();
         if input == None {
             continue;

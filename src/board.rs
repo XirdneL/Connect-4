@@ -7,12 +7,6 @@ pub enum Cell {
     Player2
 }
 
-pub enum CellCheck {
-    FoundSelf,
-    FoundOtherPlayer,
-    FoundWinner
-}
-
 impl fmt::Display for Cell {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
        match *self {
@@ -21,6 +15,12 @@ impl fmt::Display for Cell {
            Cell::Player2 => write!(f, "O"),
        }
     }
+}
+
+pub enum CellCheck {
+    FoundSelf,
+    FoundOther,
+    FoundWinner
 }
 
 pub struct Board {
@@ -60,6 +60,10 @@ impl Board {
         return self.game_ongoing;
     }
 
+    pub fn get_winner(&self) -> Cell {
+        return self.winner;
+    }
+
     pub fn insert(&mut self, cell: Cell, x: usize) -> bool {
         if cell == Cell::Empty {
             eprintln!("Cannot insert empty cell!");
@@ -89,14 +93,10 @@ impl Board {
         return true;
     }
 
-    pub fn get_winner(&self) -> Cell {
-        return self.winner;
-    }
-
     fn check_cell(&mut self, x: usize, y: usize, cell: &Cell, num_in_a_row: &mut usize) -> CellCheck {
         let board_index: usize = x + y * Board::WIDTH;
         if self.board[board_index] != *cell {
-            return CellCheck::FoundOtherPlayer;
+            return CellCheck::FoundOther;
         }
 
         *num_in_a_row += 1;
@@ -111,94 +111,83 @@ impl Board {
 
     fn check_if_winning_insert(&mut self, x: usize, y: usize, cell: &Cell) {
         // Horizontal check
-        let mut num_in_a_row: usize = 1;
-        let mut x_check: i16 = TryInto::<i16>::try_into(x).unwrap() - 1;
-        while x_check >= 0 {
-            match self.check_cell(x_check.try_into().unwrap(), y, cell, &mut num_in_a_row) {
-                CellCheck::FoundSelf => x_check -= 1,
+        let mut num_in_a_row: usize = 0;
+        let mut x_check: usize = x;
+        loop {
+            match self.check_cell(x_check, y, cell, &mut num_in_a_row) {
+                CellCheck::FoundSelf => if x_check == 0 { break } else { x_check -= 1 }
                 CellCheck::FoundWinner => return,
-                CellCheck::FoundOtherPlayer => break
+                CellCheck::FoundOther => break
             }
         }
-        x_check = TryInto::<i16>::try_into(x).unwrap() + 1;
-        while (x_check as usize) < Board::WIDTH {
-            match self.check_cell(x_check.try_into().unwrap(), y, cell, &mut num_in_a_row) {
+        x_check = x + 1;
+        while x_check < Board::WIDTH {
+            match self.check_cell(x_check, y, cell, &mut num_in_a_row) {
                 CellCheck::FoundSelf => x_check += 1,
                 CellCheck::FoundWinner => return,
-                CellCheck::FoundOtherPlayer => break
+                CellCheck::FoundOther => break
             }
         }
 
         // Vertical check
-        num_in_a_row = 1;
-        let mut y_check: i16 = TryInto::<i16>::try_into(y).unwrap() - 1;
-        while y_check >= 0 {
-            match self.check_cell(x, y_check.try_into().unwrap(), cell, &mut num_in_a_row) {
-                CellCheck::FoundSelf => y_check -= 1,
+        num_in_a_row = 0;
+        let mut y_check: usize = y;
+        loop {
+            match self.check_cell(x, y_check, cell, &mut num_in_a_row) {
+                CellCheck::FoundSelf => if y_check == 0 { break } else { y_check -= 1 }
                 CellCheck::FoundWinner => return,
-                CellCheck::FoundOtherPlayer => break
+                CellCheck::FoundOther => break
             }
         }
-        y_check = TryInto::<i16>::try_into(y).unwrap() + 1;
-        while (y_check as usize) < Board::HEIGHT {
-            match self.check_cell(x, y_check.try_into().unwrap(), cell, &mut num_in_a_row) {
+        y_check = y + 1;
+        while y_check < Board::HEIGHT {
+            match self.check_cell(x, y_check, cell, &mut num_in_a_row) {
                 CellCheck::FoundSelf => y_check += 1,
                 CellCheck::FoundWinner => return,
-                CellCheck::FoundOtherPlayer => break
+                CellCheck::FoundOther => break
             }
         }
 
-        // Diagonal up check
-        num_in_a_row = 1;
-        x_check = TryInto::<i16>::try_into(x).unwrap() - 1;
-        y_check = TryInto::<i16>::try_into(y).unwrap() + 1;
-        while x_check >= 0 && (y_check as usize) < Board::HEIGHT {
-            match self.check_cell(x_check.try_into().unwrap(), y_check.try_into().unwrap(), cell, &mut num_in_a_row) {
-                CellCheck::FoundSelf => {
-                    x_check -= 1;
-                    y_check += 1;
-                }
+        // / check
+        num_in_a_row = 0;
+        x_check = x;
+        y_check = y;
+        while y_check < Board::HEIGHT {
+            match self.check_cell(x_check, y_check, cell, &mut num_in_a_row) {
+                CellCheck::FoundSelf => if x_check == 0 { break } else { x_check -=1; y_check += 1; }
                 CellCheck::FoundWinner => return,
-                CellCheck::FoundOtherPlayer => break
+                CellCheck::FoundOther => break
             }
         }
-        x_check = TryInto::<i16>::try_into(x).unwrap() + 1;
-        y_check = TryInto::<i16>::try_into(y).unwrap() - 1;
-        while (x_check as usize) < Board::WIDTH && y_check >= 0 {
-            match self.check_cell(x_check.try_into().unwrap(), y_check.try_into().unwrap(), cell, &mut num_in_a_row) {
-                CellCheck::FoundSelf => {
-                    x_check += 1;
-                    y_check -= 1;
-                }
+        num_in_a_row -= 1;
+        x_check = x;
+        y_check = y;
+        while x_check < Board::WIDTH {
+            match self.check_cell(x_check, y_check, cell, &mut num_in_a_row) {
+                CellCheck::FoundSelf => if y_check == 0 { break } else { x_check += 1; y_check -= 1; }
                 CellCheck::FoundWinner => return,
-                CellCheck::FoundOtherPlayer => break
+                CellCheck::FoundOther => break
             }
         }
 
-        // Diagonal down check
-        num_in_a_row = 1;
-        let mut x_check: i16 = TryInto::<i16>::try_into(x).unwrap() - 1;
-        let mut y_check: i16 = TryInto::<i16>::try_into(y).unwrap() - 1;
-        while x_check >= 0 && y_check >= 0 {
-            match self.check_cell(x_check.try_into().unwrap(), y_check.try_into().unwrap(), cell, &mut num_in_a_row) {
-                CellCheck::FoundSelf => {
-                    x_check -= 1;
-                    y_check -= 1;
-                }
+        // \ check
+        num_in_a_row = 0;
+        x_check = x;
+        y_check = y;
+        loop {
+            match self.check_cell(x_check, y_check, cell, &mut num_in_a_row) {
+                CellCheck::FoundSelf => if x_check == 0 || y_check == 0 { break } else { x_check -= 1; y_check -= 1; }
                 CellCheck::FoundWinner => return,
-                CellCheck::FoundOtherPlayer => break
+                CellCheck::FoundOther => break
             }
         }
-        x_check = TryInto::<i16>::try_into(x).unwrap() + 1;
-        y_check = TryInto::<i16>::try_into(y).unwrap() + 1;
-        while (x_check as usize) < Board::WIDTH && (y_check as usize) < Board::HEIGHT {
-            match self.check_cell(x_check.try_into().unwrap(), y_check.try_into().unwrap(), cell, &mut num_in_a_row) {
-                CellCheck::FoundSelf => {
-                    x_check += 1;
-                    y_check += 1;
-                }
+        x_check = x + 1;
+        y_check = y + 1;
+        while x_check < Board::WIDTH && y_check < Board::HEIGHT {
+            match self.check_cell(x_check, y_check, cell, &mut num_in_a_row) {
+                CellCheck::FoundSelf => { x_check += 1; y_check += 1; }
                 CellCheck::FoundWinner => return,
-                CellCheck::FoundOtherPlayer => break
+                CellCheck::FoundOther => break
             }
         }
     }
